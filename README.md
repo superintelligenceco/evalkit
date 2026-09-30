@@ -13,7 +13,7 @@ GitHub Actions.
 
 ```console
 $ evalkit run examples/support-bot/evals.yaml
-evalkit 0.1.0  suite support-bot  target command:python3  8 tasks x 1 run
+evalkit 0.2.0  suite support-bot  target command:python3  8 tasks x 1 run
 
   STATUS  TASK                 SCORE   RUNS  LATENCY      COST  DETAIL
   pass    password-reset        1.00    1/1     40ms         -
@@ -190,7 +190,7 @@ Flakiness stats come from repeating each task:
 
 ```console
 $ evalkit run examples/flaky/evals.yaml
-evalkit 0.1.0  suite flakiness  target mock:sometimes-wrong  3 tasks x 10 runs
+evalkit 0.2.0  suite flakiness  target mock:sometimes-wrong  3 tasks x 10 runs
 
   STATUS  TASK    SCORE   RUNS  LATENCY      COST  DETAIL
   pass    planet   1.00  10/10      0ms         -

@@ -6,8 +6,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-30
+
 ### Added
 
+- The package publishes to PyPI as `sic-evalkit` on every release tag. The command and the import
+  package are still `evalkit`.
+- A `curl | sh` installer (`install.sh`) that downloads the executable for your platform.
+- A documentation site on GitHub Pages with a FAQ, architecture notes, decision records, and a demo.
+- Property-based tests, a test that runs the README quickstart, a benchmark gate in CI, a nightly
+  deep test run, and weekly mutation testing.
 - Standalone `evalkit` executables for Linux x64, Linux arm64, macOS on Apple silicon, and
   Windows x64. They bundle Python, so you can run evalkit without installing Python.
 - Every GitHub Release carries the executables, the wheel and sdist, and a `SHA256SUMS` file.
@@ -56,5 +64,6 @@ output, and gates CI on pass rate and regressions.
   as outputs.
 - Example suites: `quickstart`, `support-bot`, `flaky`, and `openai-compatible`.
 
-[Unreleased]: https://github.com/superintelligenceco/evalkit/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/superintelligenceco/evalkit/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/superintelligenceco/evalkit/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/superintelligenceco/evalkit/releases/tag/v0.1.0
