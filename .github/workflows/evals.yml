@@ -76,6 +76,49 @@ jobs:
           path: out/
           if-no-files-found: error
 
+  badge:
+    # Publishes the dogfood result as a shields.io endpoint badge for the README.
+    name: Publish the evals badge
+    needs: examples
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.examples.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: eval-results
+          path: out
+      - name: Combine the example suites into one badge
+        env:
+          JOB_RESULT: ${{ needs.examples.result }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          suites = ["quickstart", "support-bot", "flaky"]
+          passed = total = 0
+          for name in suites:
+              summary = json.load(open(f"out/{name}/results.json"))["summary"]
+              passed += summary["passed"]
+              total += summary["tasks"]
+          ok = os.environ["JOB_RESULT"] == "success"
+          badge = {
+              "schemaVersion": 1,
+              "label": "dogfood evals",
+              "message": f"{passed}/{total} tasks, {'passing' if ok else 'failing'}",
+              "color": "brightgreen" if ok else "red",
+          }
+          json.dump(badge, open("evals-badge.json", "w"))
+          print(badge)
+          PY
+      - name: Publish to the badges branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/publish_badge.sh evals evals-badge.json
+
   published-ref:
     # Uses the action the way other workflows do, by `owner/repo@ref`, to check that the
     # published ref resolves and installs.
