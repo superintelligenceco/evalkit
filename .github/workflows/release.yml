@@ -1,20 +1,244 @@
+# Opens release PRs with release-please, and builds the downloadable artifacts:
+# a wheel and sdist, standalone `evalkit` executables for four platforms, and SHA256SUMS.
+#
+# - Push to main: release-please updates its release PR. When a release PR merges, release-please
+#   creates the tag and GitHub Release, and the jobs below attach the artifacts to it.
+# - Push of a vX.Y.Z tag: the jobs build the artifacts, create the GitHub Release if it doesn't
+#   exist yet, and attach the artifacts to it.
+# - Manual run (workflow_dispatch): the jobs build the artifacts and upload them to the run only.
 name: Release
 
 on:
   push:
     branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYINSTALLER_VERSION: "6.22.3"
+
 jobs:
   release-please:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+      - id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  plan:
+    needs: release-please
+    if: >-
+      !cancelled() && (
+        github.event_name == 'workflow_dispatch' ||
+        startsWith(github.ref, 'refs/tags/v') ||
+        needs.release-please.outputs.release_created == 'true'
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ steps.plan.outputs.ref }}
+      tag: ${{ steps.plan.outputs.tag }}
+    steps:
+      - id: plan
+        env:
+          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ -n "$RP_TAG" ]; then
+            echo "ref=refs/tags/$RP_TAG" >> "$GITHUB_OUTPUT"
+            echo "tag=$RP_TAG" >> "$GITHUB_OUTPUT"
+          elif [ "$EVENT" = "push" ]; then
+            echo "ref=$REF" >> "$GITHUB_OUTPUT"
+            echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=$REF" >> "$GITHUB_OUTPUT"
+            echo "tag=" >> "$GITHUB_OUTPUT"
+          fi
+
+  python-dist:
+    name: Wheel and sdist
+    needs: plan
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Build
+        run: |
+          python -m pip install build
+          python -m build --outdir python-dist
+      - name: Install the wheel in a clean venv and run the starter suite
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install python-dist/*.whl
+          cd "$(mktemp -d)"
+          "$RUNNER_TEMP/venv/bin/evalkit" --version
+          "$RUNNER_TEMP/venv/bin/evalkit" init
+          "$RUNNER_TEMP/venv/bin/evalkit" run evals.yaml
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: python-dist
+          path: python-dist/
+          if-no-files-found: error
+
+  # Linux binaries build in Debian bullseye (glibc 2.31) so they run on older distributions too.
+  binary-linux:
+    name: Executable (${{ matrix.asset }})
+    needs: [plan, python-dist]
+    if: ${{ !cancelled() && needs.python-dist.result == 'success' }}
+    runs-on: ${{ matrix.runner }}
+    container: python:3.12-slim-bullseye@sha256:411fa4dcfdce7e7a3057c45662beba9dcd4fa36b2e50a2bfcd6c9333e59bf0db
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - asset: evalkit-linux-x64
+            runner: ubuntu-latest
+          - asset: evalkit-linux-arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-dist
+          path: python-dist
+      - name: Install build tools
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq binutils
+          python -m venv /opt/venv
+          /opt/venv/bin/pip install python-dist/*.whl "pyinstaller==$PYINSTALLER_VERSION"
+      - name: Build and smoke-test
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: /opt/venv/bin/python scripts/build_binary.py "$ASSET"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          if-no-files-found: error
+
+  binary-native:
+    name: Executable (${{ matrix.asset }})
+    needs: [plan, python-dist]
+    if: ${{ !cancelled() && needs.python-dist.result == 'success' }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - asset: evalkit-macos-arm64
+            runner: macos-latest
+            file: evalkit-macos-arm64
+          - asset: evalkit-windows-x64
+            runner: windows-latest
+            file: evalkit-windows-x64.exe
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-dist
+          path: python-dist
+      - name: Install build tools
+        run: python -m pip install python-dist/*.whl "pyinstaller==$PYINSTALLER_VERSION"
+      - name: Build and smoke-test
+        env:
+          ASSET: ${{ matrix.asset }}
+        run: python scripts/build_binary.py "$ASSET"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.file }}
+          if-no-files-found: error
+
+  checksums:
+    name: SHA256SUMS
+    needs: [python-dist, binary-linux, binary-native]
+    if: ${{ !cancelled() && needs.binary-linux.result == 'success' && needs.binary-native.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Compute checksums
+        run: |
+          cd assets
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SHA256SUMS
+          path: assets/SHA256SUMS
+          if-no-files-found: error
+
+  publish:
+    name: Attach to the GitHub Release
+    needs: [plan, checksums]
+    if: ${{ !cancelled() && needs.checksums.result == 'success' && needs.plan.outputs.tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.plan.outputs.tag }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          path: assets
+          merge-multiple: true
+      - name: Create the release if the tag has none
+        run: |
+          if ! gh release view "$TAG" > /dev/null 2>&1; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
+      - name: Upload assets
+        run: gh release upload "$TAG" assets/* --clobber
+      - name: Move the major version tag
+        # Lets workflows pin the action to `superintelligenceco/evalkit@v0` (or @v1, and so on).
+        run: |
+          major="${TAG%%.*}"
+          sha="$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.sha)"
+          if [ "$(gh api "repos/$GH_REPO/git/ref/tags/$TAG" --jq .object.type)" = "tag" ]; then
+            sha="$(gh api "repos/$GH_REPO/git/tags/$sha" --jq .object.sha)"
+          fi
+          if gh api "repos/$GH_REPO/git/ref/tags/$major" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/$major" -f sha="$sha" -F force=true
+          else
+            gh api -X POST "repos/$GH_REPO/git/refs" -f ref="refs/tags/$major" -f sha="$sha"
+          fi
