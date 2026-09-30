@@ -1,0 +1,33 @@
+# Mirrors the CI linters. Install the hooks with `pre-commit install` (`make setup` does it).
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=2048"]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: a56c0b927e6465d37cae3e97d35d4d18ab2b96cd # frozen: v0.16.9
+    hooks:
+      - id: ruff-check
+      - id: ruff-format
+
+  - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
+    rev: 805f85e558841bf4d852335e036b33d2b26be1cc # frozen: v1.7.12.25
+    hooks:
+      - id: actionlint
+
+  # mypy runs from your dev environment so it sees the same dependencies as CI.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        language: system
+        types: [python]
+        pass_filenames: false

@@ -1,0 +1,40 @@
+# evalkit
+
+> evalkit is evals as code for LLM apps and agents. You write tasks and graders in a YAML suite,
+> run them against a model (OpenAI-compatible, Anthropic), a command, or an HTTP app, and fail CI
+> when the pass rate or score regresses against a baseline. It ships as a Python package, a
+> standalone executable, a container image, and a composite GitHub Action.
+
+Key facts:
+
+- CLI: `evalkit run | compare | validate | init | schema | cache`. Exit codes: 0 passed, 1 failed or regressed, 2 usage or config error.
+- Graders: exact, contains, regex, json_schema, numeric, python, llm_judge.
+- Providers: openai, anthropic, command, http, mock (offline and deterministic).
+- GitHub Action: `uses: superintelligenceco/evalkit@v0.2.0` with `suite: evals.yaml`.
+- Container: `docker run --rm ghcr.io/superintelligenceco/evalkit run evals.yaml`.
+
+## Docs
+
+- [README](https://github.com/superintelligenceco/evalkit/blob/main/README.md): overview, install, suite and grader reference
+- [Documentation site](https://superintelligenceco.github.io/evalkit/): quickstart, concepts, CLI reference, FAQ, architecture
+- [Quickstart](https://superintelligenceco.github.io/evalkit/quickstart/)
+- [CLI reference](https://superintelligenceco.github.io/evalkit/reference/cli/)
+- [Architecture decision records](https://superintelligenceco.github.io/evalkit/adr/)
+- [CHANGELOG](https://github.com/superintelligenceco/evalkit/blob/main/CHANGELOG.md)
+- [CONTRIBUTING](https://github.com/superintelligenceco/evalkit/blob/main/CONTRIBUTING.md)
+
+## Source
+
+- [src/evalkit/cli.py](https://github.com/superintelligenceco/evalkit/blob/main/src/evalkit/cli.py): command-line entry point
+- [src/evalkit/config.py](https://github.com/superintelligenceco/evalkit/blob/main/src/evalkit/config.py): suite schema (pydantic, strict)
+- [src/evalkit/runner.py](https://github.com/superintelligenceco/evalkit/blob/main/src/evalkit/runner.py): concurrency, retries, repeats, cache
+- [src/evalkit/graders/](https://github.com/superintelligenceco/evalkit/tree/main/src/evalkit/graders): built-in graders and the LLM judge
+- [src/evalkit/providers/](https://github.com/superintelligenceco/evalkit/tree/main/src/evalkit/providers): model and app targets
+- [src/evalkit/compare.py](https://github.com/superintelligenceco/evalkit/blob/main/src/evalkit/compare.py): regression gate
+- [action.yml](https://github.com/superintelligenceco/evalkit/blob/main/action.yml): composite GitHub Action
+
+## Examples
+
+- [examples/quickstart/evals.yaml](https://github.com/superintelligenceco/evalkit/blob/main/examples/quickstart/evals.yaml)
+- [examples/support-bot/evals.yaml](https://github.com/superintelligenceco/evalkit/blob/main/examples/support-bot/evals.yaml)
+- [examples/flaky/evals.yaml](https://github.com/superintelligenceco/evalkit/blob/main/examples/flaky/evals.yaml)

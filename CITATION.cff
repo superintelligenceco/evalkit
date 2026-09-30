@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: If you use evalkit in your work, please cite it as below.
+title: "evalkit: evals as code for LLM apps and agents"
+type: software
+authors:
+  - name: superintelligenceco contributors
+repository-code: https://github.com/superintelligenceco/evalkit
+url: https://superintelligenceco.github.io/evalkit/
+abstract: >-
+  evalkit runs YAML eval suites against LLMs or your own app, grades the output with
+  deterministic, Python, and LLM-as-judge graders, and gates CI on pass rate and regressions.
+keywords:
+  - llm
+  - evals
+  - evaluation
+  - testing
+  - ci
+license: Apache-2.0
+version: 0.1.0
+date-released: "2026-09-30"
