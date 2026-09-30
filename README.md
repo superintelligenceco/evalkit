@@ -34,6 +34,23 @@ one known gap, so the suite passes at its 85% bar with one failing task.
 
 ## Install
 
+Install from [PyPI](https://pypi.org/project/sic-evalkit/) into a Python 3.11+ environment. The
+distribution is named `sic-evalkit`. The command and the import package are both `evalkit`:
+
+```sh
+pip install sic-evalkit
+evalkit --version
+```
+
+To install a standalone executable instead, run the installer. It picks the right release
+asset for your OS and CPU, checks it against `SHA256SUMS`, and puts `evalkit` in
+`~/.local/bin` (set `EVALKIT_INSTALL_DIR` to change that, or `EVALKIT_VERSION=v0.2.0` to pin a
+version):
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/superintelligenceco/evalkit/main/install.sh | sh
+```
+
 Every [GitHub Release](https://github.com/superintelligenceco/evalkit/releases) carries a
 standalone `evalkit` executable for each platform, the Python wheel and sdist, and a
 `SHA256SUMS` file. The executables bundle Python, so you don't need Python installed.
@@ -46,7 +63,7 @@ standalone `evalkit` executable for each platform, the Python wheel and sdist, a
 | macOS on Intel | `evalkit-macos-x64` |
 | Windows x64 | `evalkit-windows-x64.exe` |
 
-Download an executable, check it, and put it on your `PATH`:
+To download an executable by hand, check it, and put it on your `PATH`:
 
 ```sh
 curl -fLO https://github.com/superintelligenceco/evalkit/releases/latest/download/evalkit-linux-x64
@@ -60,13 +77,6 @@ evalkit --version
 On macOS, use `shasum -a 256 --check --ignore-missing SHA256SUMS`. The macOS and Windows
 executables aren't signed, so a browser download can trigger Gatekeeper or SmartScreen. Download
 with `curl` instead, or on macOS run `xattr -d com.apple.quarantine evalkit-macos-arm64`.
-
-To install into a Python 3.11+ environment instead, install the wheel from a release. Replace
-`0.2.0` with the version you want:
-
-```sh
-pip install https://github.com/superintelligenceco/evalkit/releases/download/v0.2.0/evalkit-0.2.0-py3-none-any.whl
-```
 
 ### Container image
 
@@ -384,7 +394,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: superintelligenceco/evalkit@v0.1.0
+      - uses: superintelligenceco/evalkit@v0
         id: evals
         with:
           suite: evals.yaml
@@ -430,7 +440,7 @@ Run the CLI and publish the JUnit file with your system's test report feature. D
 [release executable](#install) or install with pip:
 
 ```sh
-pip install "git+https://github.com/superintelligenceco/evalkit@v0.1.0"
+pip install sic-evalkit
 evalkit run evals.yaml --junit evalkit-junit.xml -o results.json
 ```
 
@@ -456,7 +466,6 @@ These are planned, not built:
 - More graders: semantic similarity with embeddings, ROUGE and BLEU, and a pairwise judge.
 - Side-by-side comparison of several targets in one run.
 - An HTML report with per-task diffs.
-- Publishing to PyPI.
 
 Suggestions are welcome in [issues](https://github.com/superintelligenceco/evalkit/issues).
 

@@ -9,4 +9,6 @@ exclude = [
   '^https://api\.openai\.com/v1$',
   '^https://codespaces\.new/',
   '^https://img\.shields\.io/',
+  # PyPI returns 404 for a project until its first upload.
+  '^https://pypi\.org/project/sic-evalkit',
 ]

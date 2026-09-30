@@ -22,6 +22,11 @@ repos:
     hooks:
       - id: actionlint
 
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: 745eface02aef23e168a8afb6b5737818efbea95 # frozen: v0.11.0.1
+    hooks:
+      - id: shellcheck
+
   # mypy runs from your dev environment so it sees the same dependencies as CI.
   - repo: local
     hooks:
