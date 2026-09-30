@@ -3,7 +3,7 @@ requires = ["hatchling>=1.24"]
 build-backend = "hatchling.build"
 
 [project]
-name = "evalkit"
+name = "sic-evalkit"
 version = "0.1.0"
 description = "Evals as code for LLM apps and agents. Write tasks and graders in YAML, run them in CI, fail the build on regressions."
 readme = "README.md"

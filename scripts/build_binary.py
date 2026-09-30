@@ -39,7 +39,7 @@ def build(name: str) -> Path:
             str(work),
             # evalkit reads its version from the installed package metadata.
             "--copy-metadata",
-            "evalkit",
+            "sic-evalkit",
             "--collect-data",
             "jsonschema_specifications",
             str(ROOT / "src" / "evalkit" / "__main__.py"),

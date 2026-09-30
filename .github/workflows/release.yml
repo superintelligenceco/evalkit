@@ -1,6 +1,6 @@
 # Builds and publishes a release when you push a vX.Y.Z tag:
 #
-# - the wheel and sdist,
+# - the wheel and sdist, published to PyPI as sic-evalkit,
 # - standalone `evalkit` executables (PyInstaller) for Linux, macOS, and Windows,
 # - the multi-arch image on ghcr.io/superintelligenceco/evalkit, signed with cosign,
 # - SPDX SBOMs, SHA256SUMS, and build provenance attestations,
@@ -193,9 +193,32 @@ jobs:
           path: assets/
           if-no-files-found: error
 
+  pypi:
+    name: Publish to PyPI
+    needs: [assemble, image]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: python-dist
+          path: python-dist
+      - name: Keep only the wheel and sdist
+        run: |
+          mkdir dist
+          mv python-dist/*.whl python-dist/*.tar.gz dist/
+          ls -l dist
+      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          # Build provenance for the wheel and sdist is on the GitHub Release instead.
+          attestations: false
+
   publish:
     name: Publish the GitHub Release
-    needs: [assemble, image]
+    needs: [assemble, image, pypi]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
@@ -226,6 +249,13 @@ jobs:
             on { print }
           ' CHANGELOG.md > notes.md
           {
+            echo
+            echo "### Install"
+            echo
+            echo '```sh'
+            echo "pip install sic-evalkit==$version"
+            echo "curl -fsSL https://raw.githubusercontent.com/$GH_REPO/main/install.sh | EVALKIT_VERSION=$TAG sh"
+            echo '```'
             echo
             echo "### Container image"
             echo
