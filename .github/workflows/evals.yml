@@ -1,0 +1,77 @@
+# Runs the example suites with this repository's own action, the same way you run yours.
+name: Evals
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: evals-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  examples:
+    name: Example suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Quickstart (mock provider)
+        id: quickstart
+        uses: ./
+        with:
+          suite: examples/quickstart/evals.yaml
+          python-version: "3.12"
+          output-dir: out/quickstart
+
+      - name: Support bot (command target, python graders, mock judge)
+        id: support
+        uses: ./
+        with:
+          suite: examples/support-bot/evals.yaml
+          output-dir: out/support-bot
+
+      - name: Flakiness (10 repeats per task)
+        id: flaky
+        uses: ./
+        with:
+          suite: examples/flaky/evals.yaml
+          output-dir: out/flaky
+
+      - name: Gate the quickstart against its own baseline
+        uses: ./
+        with:
+          suite: examples/quickstart/evals.yaml
+          baseline: out/quickstart/results.json
+          strict: "true"
+          output-dir: out/quickstart-rerun
+
+      - name: Check action outputs
+        env:
+          QUICKSTART_OK: ${{ steps.quickstart.outputs.ok }}
+          QUICKSTART_PASSED: ${{ steps.quickstart.outputs.passed }}
+          SUPPORT_PASSED: ${{ steps.support.outputs.passed }}
+          SUPPORT_TOTAL: ${{ steps.support.outputs.total }}
+          FLAKY_RATE: ${{ steps.flaky.outputs.pass-rate }}
+        run: |
+          test "$QUICKSTART_OK" = "true"
+          test "$QUICKSTART_PASSED" = "6"
+          test "$SUPPORT_PASSED" = "7"
+          test "$SUPPORT_TOTAL" = "8"
+          test "$FLAKY_RATE" = "0.6667"
+          test -s out/quickstart/junit.xml
+          test -s out/quickstart/badge.json
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eval-results
+          path: out/
+          if-no-files-found: error
