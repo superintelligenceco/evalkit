@@ -75,3 +75,23 @@ jobs:
           name: eval-results
           path: out/
           if-no-files-found: error
+
+  published-ref:
+    # Uses the action the way other workflows do, by `owner/repo@ref`, to check that the
+    # published ref resolves and installs.
+    name: Action by published ref
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Quickstart through superintelligenceco/evalkit@v0.1.0
+        id: quickstart
+        uses: superintelligenceco/evalkit@281bf8f89b80edd65c6bfd64ce10e4ece737f9af # v0.1.0
+        with:
+          suite: examples/quickstart/evals.yaml
+          output-dir: out/quickstart
+      - name: Check action outputs
+        env:
+          PASSED: ${{ steps.quickstart.outputs.passed }}
+        run: test "$PASSED" = "6"
