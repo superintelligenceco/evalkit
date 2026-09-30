@@ -40,7 +40,7 @@ dev = [
   "pre-commit>=3.7",
   "pytest>=8",
   "pytest-benchmark>=4",
-  "pytest-cov>=5",
+  "pytest-cov>=7.1.0",
   "ruff>=0.16,<0.17",
   "types-jsonschema",
   "types-PyYAML",
