@@ -1,0 +1,134 @@
+name: evalkit
+description: Run an evalkit suite, gate on pass rate and regressions, and post a summary to the job.
+author: superintelligenceco contributors
+branding:
+  icon: check-square
+  color: green
+
+inputs:
+  suite:
+    description: Path to the suite YAML file.
+    required: true
+  baseline:
+    description: Results JSON to compare against. The step fails when the run regresses beyond `threshold`.
+    required: false
+    default: ""
+  threshold:
+    description: Allowed drop in pass rate or score against the baseline, as a fraction.
+    required: false
+    default: "0"
+  strict:
+    description: Set to "true" to fail when any single task regresses.
+    required: false
+    default: "false"
+  fail-under:
+    description: Minimum pass rate from 0 to 1. Overrides the suite setting.
+    required: false
+    default: ""
+  output-dir:
+    description: Directory for results.json, junit.xml, summary.md, and badge.json.
+    required: false
+    default: evalkit-results
+  args:
+    description: Extra arguments for `evalkit run`, such as `--tag smoke --repeat 3`.
+    required: false
+    default: ""
+  python-version:
+    description: Python version to install evalkit with. Leave empty to use the runner's python3.
+    required: false
+    default: ""
+  install:
+    description: >-
+      What to pip install. Defaults to the copy of evalkit that ships with this action,
+      so the version always matches the action ref.
+    required: false
+    default: ""
+  job-summary:
+    description: Set to "false" to skip writing the Markdown summary to the job summary.
+    required: false
+    default: "true"
+
+outputs:
+  passed:
+    description: Number of tasks that passed.
+    value: ${{ steps.run.outputs.passed }}
+  total:
+    description: Number of tasks that ran.
+    value: ${{ steps.run.outputs.total }}
+  pass-rate:
+    description: Share of passing tasks, from 0 to 1.
+    value: ${{ steps.run.outputs.pass-rate }}
+  ok:
+    description: '"true" when the run met fail-under and did not regress.'
+    value: ${{ steps.run.outputs.ok }}
+  results-file:
+    description: Path to the results JSON.
+    value: ${{ steps.run.outputs.results-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Python
+      if: inputs.python-version != ''
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install evalkit
+      shell: bash
+      env:
+        INSTALL: ${{ inputs.install }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        python3 -m venv "$RUNNER_TEMP/evalkit-venv"
+        "$RUNNER_TEMP/evalkit-venv/bin/python" -m pip install --quiet --upgrade pip
+        "$RUNNER_TEMP/evalkit-venv/bin/python" -m pip install --quiet "${INSTALL:-$ACTION_PATH}"
+        "$RUNNER_TEMP/evalkit-venv/bin/evalkit" --version
+
+    - name: Run evals
+      id: run
+      shell: bash
+      env:
+        SUITE: ${{ inputs.suite }}
+        BASELINE: ${{ inputs.baseline }}
+        THRESHOLD: ${{ inputs.threshold }}
+        STRICT: ${{ inputs.strict }}
+        FAIL_UNDER: ${{ inputs.fail-under }}
+        OUTPUT_DIR: ${{ inputs.output-dir }}
+        EXTRA_ARGS: ${{ inputs.args }}
+        JOB_SUMMARY: ${{ inputs.job-summary }}
+      run: |
+        set -uo pipefail
+        mkdir -p "$OUTPUT_DIR"
+        cmd=("$RUNNER_TEMP/evalkit-venv/bin/evalkit" run "$SUITE"
+          --output "$OUTPUT_DIR/results.json"
+          --junit "$OUTPUT_DIR/junit.xml"
+          --markdown "$OUTPUT_DIR/summary.md"
+          --badge "$OUTPUT_DIR/badge.json")
+        if [ -n "$BASELINE" ]; then
+          cmd+=(--baseline "$BASELINE" --threshold "$THRESHOLD")
+          if [ "$STRICT" = "true" ]; then cmd+=(--strict); fi
+        fi
+        if [ -n "$FAIL_UNDER" ]; then cmd+=(--fail-under "$FAIL_UNDER"); fi
+        if [ -n "$EXTRA_ARGS" ]; then
+          read -r -a extra <<< "$EXTRA_ARGS"
+          cmd+=("${extra[@]}")
+        fi
+        status=0
+        "${cmd[@]}" || status=$?
+        if [ -f "$OUTPUT_DIR/results.json" ]; then
+          "$RUNNER_TEMP/evalkit-venv/bin/python" - "$OUTPUT_DIR/results.json" "$status" <<'PY' >> "$GITHUB_OUTPUT"
+        import json, sys
+        data = json.load(open(sys.argv[1], encoding="utf-8"))
+        summary = data["summary"]
+        print(f"passed={summary['passed']}")
+        print(f"total={summary['tasks']}")
+        print(f"pass-rate={summary['pass_rate']}")
+        print(f"ok={'true' if sys.argv[2] == '0' else 'false'}")
+        PY
+          echo "results-file=$OUTPUT_DIR/results.json" >> "$GITHUB_OUTPUT"
+          if [ "$JOB_SUMMARY" = "true" ]; then
+            cat "$OUTPUT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
+          fi
+        fi
+        exit "$status"
