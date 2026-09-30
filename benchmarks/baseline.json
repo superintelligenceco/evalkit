@@ -1,0 +1,10 @@
+{
+  "_comment": "Median time budgets in seconds for each benchmark. They sit about 10x above a typical run, so the gate catches algorithmic regressions (a quadratic loop, a cache miss per task) without flaking on slow CI runners. Lower a budget when you make a path faster.",
+  "budgets": {
+    "test_bench_render_template": 0.001,
+    "test_bench_render_reports": 0.015,
+    "test_bench_compare_2000_tasks": 0.025,
+    "test_bench_load_example_suite": 0.06,
+    "test_bench_run_200_tasks_on_mock": 0.35
+  }
+}
