@@ -32,16 +32,62 @@ PASS: pass rate 87.5% meets fail_under 85.0%
 That output is real. The example's target is a small rules-based bot that runs as a command, with
 one known gap, so the suite passes at its 85% bar with one failing task.
 
+## Install
+
+Every [GitHub Release](https://github.com/superintelligenceco/evalkit/releases) carries a
+standalone `evalkit` executable for each platform, the Python wheel and sdist, and a
+`SHA256SUMS` file. The executables bundle Python, so you don't need Python installed.
+
+| Platform | Asset |
+| --- | --- |
+| Linux x64 (glibc 2.31 or later) | `evalkit-linux-x64` |
+| Linux arm64 (glibc 2.31 or later) | `evalkit-linux-arm64` |
+| macOS on Apple silicon | `evalkit-macos-arm64` |
+| Windows x64 | `evalkit-windows-x64.exe` |
+
+Download an executable, check it, and put it on your `PATH`:
+
+```sh
+curl -fLO https://github.com/superintelligenceco/evalkit/releases/latest/download/evalkit-linux-x64
+curl -fLO https://github.com/superintelligenceco/evalkit/releases/latest/download/SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x evalkit-linux-x64
+sudo mv evalkit-linux-x64 /usr/local/bin/evalkit
+evalkit --version
+```
+
+On macOS, use `shasum -a 256 --check --ignore-missing SHA256SUMS`. The macOS and Windows
+executables aren't signed, so a browser download can trigger Gatekeeper or SmartScreen. Download
+with `curl` instead, or on macOS run `xattr -d com.apple.quarantine evalkit-macos-arm64`.
+
+To install into a Python 3.11+ environment instead, install the wheel from a release. Replace
+`0.2.0` with the version you want:
+
+```sh
+pip install https://github.com/superintelligenceco/evalkit/releases/download/v0.2.0/evalkit-0.2.0-py3-none-any.whl
+```
+
+While the repository is private, the download URLs need GitHub authentication. Use the GitHub
+CLI instead, for example `gh release download -R superintelligenceco/evalkit -p 'evalkit-linux-*'`.
+
+The executables run everything evalkit does, including `command` and `http` targets and `python`
+graders. A `python` grader file runs on the bundled Python 3.12. It can import evalkit's own
+dependencies (`httpx`, `jsonschema`, `pydantic`, `yaml`) and the standard library modules that
+the executable bundles, which cover common ones such as `re`, `json`, `csv`, and `statistics` but
+not all of them. If your graders import other packages, install evalkit with pip into an
+environment that has them.
+
 ## Quickstart
 
-These three commands run offline. The starter suite uses the built-in `mock` provider, so you
+These commands run offline. The starter suite uses the built-in `mock` provider, so you
 don't need an API key.
 
 ```sh
-pip install "git+https://github.com/superintelligenceco/evalkit"
 evalkit init
 evalkit run evals.yaml
 ```
+
+To install from source instead, run `pip install "git+https://github.com/superintelligenceco/evalkit"`.
 
 To test a real model, replace the `target` in `evals.yaml`:
 
@@ -329,7 +375,9 @@ jobs:
       - run: echo "Pass rate ${{ steps.evals.outputs.pass-rate }}"
 ```
 
-Pin the action to a full commit SHA in production workflows. The action writes `results.json`,
+The release workflow moves a major version tag, such as `v0`, to each new release, so
+`superintelligenceco/evalkit@v0` tracks the latest 0.x release. Pin the action to a full commit
+SHA in production workflows. The action writes `results.json`,
 `junit.xml`, `summary.md`, and `badge.json` to `output-dir` (default `evalkit-results`) and appends
 the Markdown summary to the job summary.
 
@@ -359,7 +407,8 @@ and you can cache `.evalkit/` between jobs with `actions/cache` to skip repeat A
 
 ### Other CI systems
 
-Run the CLI and publish the JUnit file with your system's test report feature:
+Run the CLI and publish the JUnit file with your system's test report feature. Download a
+[release executable](#install) or install with pip:
 
 ```sh
 pip install "git+https://github.com/superintelligenceco/evalkit@v0.1.0"

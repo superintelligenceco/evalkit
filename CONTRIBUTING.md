@@ -73,6 +73,41 @@ To fix formatting and safe lint issues automatically, run `ruff format . && ruff
 - Keep each pull request focused on one change.
 - Update `CHANGELOG.md` under `Unreleased` when behavior changes.
 
+## Releases
+
+The `Release` workflow (`.github/workflows/release.yml`) does two things:
+
+- On every push to `main`, release-please opens or updates a release pull request that bumps the
+  version and the changelog. When you merge that pull request, release-please creates the tag and
+  the GitHub Release. A tag that `GITHUB_TOKEN` creates doesn't start other workflows, so the
+  build jobs run inside the same workflow run, and only when release-please reports a new release.
+- When you push a `vX.Y.Z` tag yourself, the same build jobs run, create the GitHub Release if
+  the tag has none, and attach the artifacts.
+
+Either way, the release gets the wheel, the sdist, the four standalone executables, and
+`SHA256SUMS`, and the major version tag (for example `v0`) moves to the new release so
+`superintelligenceco/evalkit@v0` resolves.
+
+To build the artifacts without releasing, run the workflow by hand. The artifacts appear on the
+workflow run only:
+
+```sh
+gh workflow run release.yml --ref main
+```
+
+To build an executable locally, install evalkit and PyInstaller, then run the build script. It
+writes `dist/<name>` and smoke-tests it with `evalkit init` and `evalkit run` in an empty
+directory:
+
+```sh
+pip install . pyinstaller
+python scripts/build_binary.py evalkit-linux-x64
+```
+
+On Linux, PyInstaller needs `objdump` from binutils. The executable only runs on systems with the
+same or a newer glibc than the build machine, which is why CI builds the Linux executables in a
+Debian bullseye container.
+
 ## Code of conduct
 
 This project follows the [Contributor Covenant](CODE_OF_CONDUCT.md). By participating, you agree

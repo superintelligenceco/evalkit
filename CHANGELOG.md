@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Standalone `evalkit` executables for Linux x64, Linux arm64, macOS on Apple silicon, and
+  Windows x64. They bundle Python, so you can run evalkit without installing Python.
+- Every GitHub Release carries the executables, the wheel and sdist, and a `SHA256SUMS` file.
+- The release workflow moves a major version tag, such as `v0`, so workflows can use
+  `superintelligenceco/evalkit@v0`.
+
+### Fixed
+
+- The CodeQL workflow now has the `actions: read` permission it needs in private repositories,
+  and keeps the SARIF as a workflow artifact when code scanning isn't available.
+
 ## [0.1.0] - 2026-09-30
 
 The first release. evalkit runs YAML eval suites against models or your own app, grades the
