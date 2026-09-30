@@ -43,6 +43,7 @@ standalone `evalkit` executable for each platform, the Python wheel and sdist, a
 | Linux x64 (glibc 2.31 or later) | `evalkit-linux-x64` |
 | Linux arm64 (glibc 2.31 or later) | `evalkit-linux-arm64` |
 | macOS on Apple silicon | `evalkit-macos-arm64` |
+| macOS on Intel | `evalkit-macos-x64` |
 | Windows x64 | `evalkit-windows-x64.exe` |
 
 Download an executable, check it, and put it on your `PATH`:
@@ -67,8 +68,26 @@ To install into a Python 3.11+ environment instead, install the wheel from a rel
 pip install https://github.com/superintelligenceco/evalkit/releases/download/v0.2.0/evalkit-0.2.0-py3-none-any.whl
 ```
 
-While the repository is private, the download URLs need GitHub authentication. Use the GitHub
-CLI instead, for example `gh release download -R superintelligenceco/evalkit -p 'evalkit-linux-*'`.
+### Container image
+
+Each release also publishes a multi-arch (amd64 and arm64) image to
+`ghcr.io/superintelligenceco/evalkit`. Its working directory holds the starter suite, so this runs
+offline:
+
+```sh
+docker run --rm ghcr.io/superintelligenceco/evalkit run evals.yaml
+```
+
+Mount your project on `/work` to run your own suites:
+
+```sh
+docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:/work" ghcr.io/superintelligenceco/evalkit run evals.yaml
+```
+
+Tags are `latest`, the version (such as `0.2.0`), and `edge` for the tip of `main`. The images are
+signed with cosign and carry build provenance attestations.
+
+### What the executables include
 
 The executables run everything evalkit does, including `command` and `http` targets and `python`
 graders. A `python` grader file runs on the bundled Python 3.12. It can import evalkit's own

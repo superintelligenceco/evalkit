@@ -1,16 +1,16 @@
-# Opens release PRs with release-please, and builds the downloadable artifacts:
-# a wheel and sdist, standalone `evalkit` executables for four platforms, and SHA256SUMS.
+# Builds and publishes a release when you push a vX.Y.Z tag:
 #
-# - Push to main: release-please updates its release PR. When a release PR merges, release-please
-#   creates the tag and GitHub Release, and the jobs below attach the artifacts to it.
-# - Push of a vX.Y.Z tag: the jobs build the artifacts, create the GitHub Release if it doesn't
-#   exist yet, and attach the artifacts to it.
-# - Manual run (workflow_dispatch): the jobs build the artifacts and upload them to the run only.
+# - the wheel and sdist,
+# - standalone `evalkit` executables (PyInstaller) for Linux, macOS, and Windows,
+# - the multi-arch image on ghcr.io/superintelligenceco/evalkit, signed with cosign,
+# - SPDX SBOMs, SHA256SUMS, and build provenance attestations,
+# - a GitHub Release with the notes from CHANGELOG.md and every file above attached.
+#
+# A manual run (workflow_dispatch) on a branch builds the files and keeps them on the run only.
 name: Release
 
 on:
   push:
-    branches: [main]
     tags: ["v*.*.*"]
   workflow_dispatch:
 
@@ -25,66 +25,23 @@ env:
   PYINSTALLER_VERSION: "6.22.3"
 
 jobs:
-  release-please:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - id: release
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
-        with:
-          config-file: release-please-config.json
-          manifest-file: .release-please-manifest.json
-
-  plan:
-    needs: release-please
-    if: >-
-      !cancelled() && (
-        github.event_name == 'workflow_dispatch' ||
-        startsWith(github.ref, 'refs/tags/v') ||
-        needs.release-please.outputs.release_created == 'true'
-      )
-    runs-on: ubuntu-latest
-    outputs:
-      ref: ${{ steps.plan.outputs.ref }}
-      tag: ${{ steps.plan.outputs.tag }}
-    steps:
-      - id: plan
-        env:
-          RP_TAG: ${{ needs.release-please.outputs.tag_name }}
-          EVENT: ${{ github.event_name }}
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          if [ -n "$RP_TAG" ]; then
-            echo "ref=refs/tags/$RP_TAG" >> "$GITHUB_OUTPUT"
-            echo "tag=$RP_TAG" >> "$GITHUB_OUTPUT"
-          elif [ "$EVENT" = "push" ]; then
-            echo "ref=$REF" >> "$GITHUB_OUTPUT"
-            echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
-          else
-            echo "ref=$REF" >> "$GITHUB_OUTPUT"
-            echo "tag=" >> "$GITHUB_OUTPUT"
-          fi
-
   python-dist:
-    name: Wheel and sdist
-    needs: plan
-    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    name: Wheel, sdist, and SBOM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.ref }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      - name: Check that the tag matches the package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          test "v$version" = "$TAG" || { echo "::error::tag $TAG does not match version $version"; exit 1; }
       - name: Build
         run: |
           python -m pip install build
@@ -97,17 +54,25 @@ jobs:
           "$RUNNER_TEMP/venv/bin/evalkit" --version
           "$RUNNER_TEMP/venv/bin/evalkit" init
           "$RUNNER_TEMP/venv/bin/evalkit" run evals.yaml
+      # The executables bundle exactly the packages installed in this venv.
+      - name: Generate the SBOM for the wheel and the executables
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: ${{ runner.temp }}/venv
+          format: spdx-json
+          output-file: python-dist/evalkit.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: python-dist
           path: python-dist/
           if-no-files-found: error
 
-  # Linux binaries build in Debian bullseye (glibc 2.31) so they run on older distributions too.
+  # Linux executables build in Debian bullseye (glibc 2.31) so they run on older distributions too.
   binary-linux:
     name: Executable (${{ matrix.asset }})
-    needs: [plan, python-dist]
-    if: ${{ !cancelled() && needs.python-dist.result == 'success' }}
+    needs: python-dist
     runs-on: ${{ matrix.runner }}
     container: python:3.12-slim-bullseye@sha256:411fa4dcfdce7e7a3057c45662beba9dcd4fa36b2e50a2bfcd6c9333e59bf0db
     strategy:
@@ -121,7 +86,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.ref }}
           persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -145,8 +109,7 @@ jobs:
 
   binary-native:
     name: Executable (${{ matrix.asset }})
-    needs: [plan, python-dist]
-    if: ${{ !cancelled() && needs.python-dist.result == 'success' }}
+    needs: python-dist
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -155,6 +118,9 @@ jobs:
           - asset: evalkit-macos-arm64
             runner: macos-latest
             file: evalkit-macos-arm64
+          - asset: evalkit-macos-x64
+            runner: macos-15-intel
+            file: evalkit-macos-x64
           - asset: evalkit-windows-x64
             runner: windows-latest
             file: evalkit-windows-x64.exe
@@ -164,7 +130,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.plan.outputs.ref }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
@@ -185,11 +150,27 @@ jobs:
           path: dist/${{ matrix.file }}
           if-no-files-found: error
 
-  checksums:
-    name: SHA256SUMS
+  image:
+    name: Container image
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/docker.yml
+    with:
+      publish: true
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+      security-events: write
+
+  assemble:
+    name: SHA256SUMS and provenance
     needs: [python-dist, binary-linux, binary-native]
-    if: ${{ !cancelled() && needs.binary-linux.result == 'success' && needs.binary-native.result == 'success' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -200,35 +181,71 @@ jobs:
           cd assets
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
+      - name: Attest build provenance for the executables, wheel, and sdist
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            assets/evalkit-*
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: SHA256SUMS
-          path: assets/SHA256SUMS
+          name: release-assets
+          path: assets/
           if-no-files-found: error
 
   publish:
-    name: Attach to the GitHub Release
-    needs: [plan, checksums]
-    if: ${{ !cancelled() && needs.checksums.result == 'success' && needs.plan.outputs.tag != '' }}
+    name: Publish the GitHub Release
+    needs: [assemble, image]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
-      TAG: ${{ needs.plan.outputs.tag }}
+      TAG: ${{ github.ref_name }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          name: release-assets
           path: assets
-          merge-multiple: true
-      - name: Create the release if the tag has none
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: sbom-image
+          path: assets
+      - name: Extract the release notes from CHANGELOG.md
         run: |
-          if ! gh release view "$TAG" > /dev/null 2>&1; then
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          version="${TAG#v}"
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on && /^\[[^]]+\]: / { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          {
+            echo
+            echo "### Container image"
+            echo
+            echo '```sh'
+            echo "docker run --rm ghcr.io/$GH_REPO:$version run evals.yaml"
+            echo '```'
+            echo
+            echo "Verify a download with \`gh attestation verify <file> -R $GH_REPO\` and the image with"
+            echo "\`gh attestation verify oci://ghcr.io/$GH_REPO:$version -R $GH_REPO\`."
+          } >> notes.md
+          test -s notes.md
+          cat notes.md
+      - name: Create or update the release
+        run: |
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file notes.md --latest
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file notes.md --latest
           fi
-      - name: Upload assets
-        run: gh release upload "$TAG" assets/* --clobber
+          gh release upload "$TAG" assets/* --clobber
       - name: Move the major version tag
         # Lets workflows pin the action to `superintelligenceco/evalkit@v0` (or @v1, and so on).
         run: |

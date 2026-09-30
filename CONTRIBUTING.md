@@ -68,24 +68,24 @@ To fix formatting and safe lint issues automatically, run `ruff format . && ruff
 ## Commits and pull requests
 
 - Use [Conventional Commits](https://www.conventionalcommits.org/) for commit messages and PR
-  titles, for example `feat(graders): add a rouge grader`. The release workflow builds the
-  changelog from them.
+  titles, for example `feat(graders): add a rouge grader`.
 - Keep each pull request focused on one change.
 - Update `CHANGELOG.md` under `Unreleased` when behavior changes.
 
 ## Releases
 
-The `Release` workflow (`.github/workflows/release.yml`) does two things:
+You release by pushing an annotated `vX.Y.Z` tag. The tag must match `version` in
+`pyproject.toml`.
 
-- On every push to `main`, release-please opens or updates a release pull request that bumps the
-  version and the changelog. When you merge that pull request, release-please creates the tag and
-  the GitHub Release. A tag that `GITHUB_TOKEN` creates doesn't start other workflows, so the
-  build jobs run inside the same workflow run, and only when release-please reports a new release.
-- When you push a `vX.Y.Z` tag yourself, the same build jobs run, create the GitHub Release if
-  the tag has none, and attach the artifacts.
+1. Move the `Unreleased` notes in `CHANGELOG.md` under a new `## [X.Y.Z] - YYYY-MM-DD` heading and
+   set `version` in `pyproject.toml`. Commit both.
+2. Tag and push: `git tag -a vX.Y.Z -m "evalkit X.Y.Z" && git push origin vX.Y.Z`.
 
-Either way, the release gets the wheel, the sdist, the four standalone executables, and
-`SHA256SUMS`, and the major version tag (for example `v0`) moves to the new release so
+The `Release` workflow (`.github/workflows/release.yml`) then builds the wheel, the sdist, the
+standalone executables, SPDX SBOMs, and `SHA256SUMS`, attests their build provenance, and
+publishes the multi-arch image to `ghcr.io/superintelligenceco/evalkit` with a cosign signature.
+It creates the GitHub Release with the notes from `CHANGELOG.md` and attaches every file. It also
+moves the major version tag (for example `v0`) to the new release so
 `superintelligenceco/evalkit@v0` resolves.
 
 To build the artifacts without releasing, run the workflow by hand. The artifacts appear on the

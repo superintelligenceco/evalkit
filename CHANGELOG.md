@@ -11,8 +11,16 @@ All notable changes to this project are documented in this file. The format foll
 - Standalone `evalkit` executables for Linux x64, Linux arm64, macOS on Apple silicon, and
   Windows x64. They bundle Python, so you can run evalkit without installing Python.
 - Every GitHub Release carries the executables, the wheel and sdist, and a `SHA256SUMS` file.
+- A multi-arch container image on `ghcr.io/superintelligenceco/evalkit`, signed with cosign.
+  Its working directory holds the starter suite, so `docker run` works without a mount.
+- Releases carry SPDX SBOMs and build provenance attestations for the executables, the wheel, the
+  sdist, and the image.
 - The release workflow moves a major version tag, such as `v0`, so workflows can use
   `superintelligenceco/evalkit@v0`.
+
+### Changed
+
+- You release by pushing a `vX.Y.Z` tag. The release-please pull request flow is gone.
 
 ### Fixed
 
