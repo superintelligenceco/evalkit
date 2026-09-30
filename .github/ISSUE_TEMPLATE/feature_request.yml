@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a grader, provider, report format, or CLI option.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What do you want to check in your LLM app that evalkit can't express today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the behavior you want. For a grader or a provider, include the YAML you would like to write.
+      render: yaml
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - graders
+        - providers and targets
+        - runner (concurrency, retries, caching, repeats)
+        - reports (table, JSON, JUnit, Markdown, badge)
+        - compare and regression gating
+        - GitHub Action
+        - other
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

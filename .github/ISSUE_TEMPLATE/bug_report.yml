@@ -1,0 +1,56 @@
+name: Bug report
+description: Report something evalkit does wrong, such as a crash, a wrong verdict, or a bad report.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. To report a security vulnerability, don't open an issue. Follow [SECURITY.md](https://github.com/superintelligenceco/evalkit/blob/main/SECURITY.md) instead.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Describe what you saw and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the command you ran and the smallest suite file that shows the problem. A suite on the `mock` provider is easiest to reproduce.
+      placeholder: |
+        evalkit run evals.yaml
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Output
+      description: Paste the terminal output. Remove API keys and other secrets first.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: evalkit version
+      description: Output of `evalkit --version`.
+    validations:
+      required: true
+  - type: input
+    id: python
+    attributes:
+      label: Python version and OS
+      placeholder: Python 3.12.4, Ubuntu 24.04
+    validations:
+      required: true
+  - type: dropdown
+    id: target
+    attributes:
+      label: Target provider
+      options:
+        - mock
+        - openai (or an OpenAI-compatible gateway)
+        - anthropic
+        - command
+        - http
+        - not related to a provider
