@@ -1,0 +1,12 @@
+# lychee link checker settings (the Repo lint workflow and `lychee .` read this file).
+exclude_path = ["node_modules", ".venv", "site", "CHANGELOG.md"]
+exclude = [
+  # Assets that exist only once a release is published.
+  '^https://github\.com/superintelligenceco/evalkit/releases/(latest/)?download/',
+  # Example endpoints in documentation.
+  '^https?://localhost',
+  '^https?://127\.0\.0\.1',
+  '^https://api\.openai\.com/v1$',
+  '^https://codespaces\.new/',
+  '^https://img\.shields\.io/',
+]
