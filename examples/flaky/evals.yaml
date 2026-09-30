@@ -1,0 +1,42 @@
+# Flakiness stats: each task runs 10 times with a different repeat index.
+#   evalkit run examples/flaky/evals.yaml
+# The mock target answers some questions wrong on a deterministic share of runs,
+# the way a model at temperature > 0 sometimes does. A task is "flaky" when some runs pass and
+# some fail. The output is identical on every machine and every rerun.
+name: flakiness
+description: Repeat each task to separate stable failures from flaky ones.
+
+target:
+  provider: mock
+  model: sometimes-wrong
+  flaky_output: "I'm not sure."
+  responses:
+    - match: "largest planet"
+      output: "Jupiter"
+    - match: "chemical symbol for gold"
+      output: "Au"
+      flaky: 0.1
+    - match: "author of Hamlet"
+      output: "William Shakespeare"
+      flaky: 0.6
+
+tasks:
+  - id: planet
+    input: What is the largest planet in the solar system?
+    expected: Jupiter
+  - id: gold
+    input: What is the chemical symbol for gold?
+    expected: Au
+  - id: hamlet
+    input: Who is the author of Hamlet?
+    expected: Shakespeare
+
+graders:
+  - type: contains
+
+settings:
+  repeat: 10
+  # A task passes when at least 70% of its runs pass.
+  task_pass_rate: 0.7
+  # At least two of the three tasks must pass.
+  fail_under: 0.66

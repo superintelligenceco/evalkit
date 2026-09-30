@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["id", "email", "roles"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "integer"},
+    "email": {"type": "string", "pattern": "^[^@]+@[^@]+$"},
+    "roles": {"type": "array", "items": {"enum": ["admin", "member", "viewer"]}}
+  }
+}

@@ -1,0 +1,37 @@
+# Evaluates your own app, not a model: the target is a command.
+#   evalkit run examples/support-bot/evals.yaml
+# The bot has one known gap (cancel-subscription), so fail_under is 0.85.
+name: support-bot
+description: Rules-based support bot, graded on content, format, safety, and tone.
+
+target:
+  provider: command
+  command: [python3, bot.py]
+  timeout: 10
+
+# The judge scores tone. The mock judge below is a keyword stand-in so the example
+# runs offline; point it at a real model to get real judgments:
+#   judge: {provider: openai, model: gpt-4o-mini}
+judge:
+  provider: mock
+  model: keyword-judge
+  responses:
+    - match: '(?s)<output>.*(Sorry|Thanks|connecting you).*</output>'
+      output: '{"score": 5, "reason": "acknowledges the customer and gives a next step"}'
+  default: '{"score": 2, "reason": "no acknowledgement of the customer"}'
+
+# Applied to every task, in addition to each task's own graders.
+graders:
+  - type: python
+    name: length
+    function: checks.py:within_length
+    args: {max_words: 40}
+  - type: llm_judge
+    name: tone
+    rubric: The reply is polite, acknowledges the customer, and gives a concrete next step.
+
+tasks: tasks.jsonl
+
+settings:
+  concurrency: 4
+  fail_under: 0.85

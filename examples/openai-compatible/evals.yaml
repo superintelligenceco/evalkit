@@ -1,0 +1,62 @@
+# Runs against any OpenAI-compatible chat completions API: OpenAI, a gateway such
+# as LiteLLM or OpenRouter, or a local server such as vLLM, llama.cpp, or Ollama.
+#
+#   export OPENAI_API_KEY=...
+#   evalkit run examples/openai-compatible/evals.yaml
+#
+#   # Local server, no key needed:
+#   OPENAI_BASE_URL=http://localhost:11434/v1 EVALKIT_MODEL=llama3.2 \
+#     evalkit run examples/openai-compatible/evals.yaml
+#
+# This suite calls a paid API when pointed at a hosted provider. Responses are
+# cached in .evalkit/cache.sqlite, so a rerun with unchanged prompts costs nothing.
+name: openai-compatible
+description: Short factual and formatting checks for a chat model.
+
+target:
+  provider: openai
+  model: ${EVALKIT_MODEL:-gpt-4o-mini}
+  base_url: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  temperature: 0
+  max_tokens: 200
+  # Set to your provider's current prices to get per-task cost. evalkit ships no price table.
+  # pricing: {input_per_mtok: 0.0, output_per_mtok: 0.0}
+
+judge:
+  provider: openai
+  model: ${EVALKIT_JUDGE_MODEL:-gpt-4o-mini}
+  base_url: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  temperature: 0
+
+system: Answer concisely.
+
+tasks:
+  - id: capital
+    input: What is the capital of Australia? Reply with the city name only.
+    expected: Canberra
+    graders:
+      - type: exact
+        ignore_case: true
+  - id: arithmetic
+    input: What is 12 squared? Reply with the number only.
+    expected: 144
+    graders:
+      - type: numeric
+  - id: json-output
+    input: 'Return JSON with keys "city" and "country" for the Eiffel Tower. JSON only.'
+    graders:
+      - type: json_schema
+        schema:
+          type: object
+          required: [city, country]
+  - id: explain-recursion
+    input: Explain recursion to a 10-year-old in two sentences.
+    graders:
+      - type: llm_judge
+        rubric: >
+          The explanation is accurate, uses no jargon a 10-year-old would not know,
+          and is at most two sentences.
+
+settings:
+  concurrency: 4
+  retries: 3

@@ -1,0 +1,77 @@
+# Quickstart: runs offline on the deterministic mock provider.
+#   evalkit run examples/quickstart/evals.yaml
+# To test a real model, replace `target` with, for example:
+#   target: {provider: openai, model: gpt-4o-mini}
+name: quickstart
+description: One task per built-in deterministic grader.
+
+target:
+  provider: mock
+  responses:
+    - match: "capital of Japan"
+      output: "Tokyo"
+    - match: "boiling point"
+      output: "Water boils at 100 degrees Celsius at sea level."
+    - match: "17 \\* 23"
+      output: "17 * 23 = 391"
+    - match: "ISO 8601"
+      output: "2026-09-30"
+    - match: "user record"
+      output: |
+        Here is the record:
+        ```json
+        {"id": 42, "email": "ada@example.com", "roles": ["admin"]}
+        ```
+    - match: "haiku"
+      output: "Autumn wind rises / red leaves scatter on the path / the kettle whistles"
+
+system: You are a concise assistant. Answer with the fact only.
+prompt: "{{question}}"
+
+tasks:
+  - id: capital-exact
+    vars: {question: "What is the capital of Japan? One word."}
+    expected: Tokyo
+    graders:
+      - type: exact
+        ignore_case: true
+
+  - id: boiling-contains
+    vars: {question: "What is the boiling point of water in Celsius?"}
+    graders:
+      - type: contains
+        value: ["100", "Celsius"]
+
+  - id: multiply-numeric
+    vars: {question: "What is 17 * 23?"}
+    expected: 391
+    graders:
+      - type: numeric
+        abs_tol: 0.5
+
+  - id: date-regex
+    vars: {question: "Give today's date in ISO 8601 format."}
+    graders:
+      - type: regex
+        pattern: '^\d{4}-\d{2}-\d{2}$'
+        fullmatch: true
+
+  - id: record-json-schema
+    vars: {question: "Return the user record for id 42 as JSON."}
+    graders:
+      - type: json_schema
+        schema_file: user.schema.json
+
+  - id: haiku-no-apology
+    tags: [style]
+    vars: {question: "Write a haiku about autumn."}
+    graders:
+      - type: contains
+        name: no apology
+        value: ["sorry", "as an AI"]
+        mode: any
+        ignore_case: true
+        negate: true
+      - type: regex
+        name: three lines
+        pattern: '^[^/]+/[^/]+/[^/]+$'
