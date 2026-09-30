@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 from collections.abc import Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -8,8 +9,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from hypothesis import settings
 
 from evalkit.config import Suite, parse_suite
+
+# The nightly workflow sets HYPOTHESIS_PROFILE=nightly to search much harder than a pull request can.
+settings.register_profile("nightly", max_examples=2000, deadline=None)
+settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "default"))
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = REPO_ROOT / "examples"
