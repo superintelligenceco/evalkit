@@ -127,3 +127,17 @@ def make_suite(tmp_path: Path):
         return parse_suite(payload, base_dir=tmp_path)
 
     return build
+
+
+# Hypothesis profiles: "ci" (default) stays fast, "nightly" digs deeper.
+# Select one with HYPOTHESIS_PROFILE=nightly.
+try:
+    import os
+
+    from hypothesis import settings
+
+    settings.register_profile("ci", max_examples=100, deadline=None)
+    settings.register_profile("nightly", max_examples=2000, deadline=None)
+    settings.load_profile(os.environ.get("HYPOTHESIS_PROFILE", "ci"))
+except ImportError:  # pragma: no cover - hypothesis is a dev dependency
+    pass
