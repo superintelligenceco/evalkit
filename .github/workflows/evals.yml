@@ -130,7 +130,7 @@ jobs:
           persist-credentials: false
       - name: Quickstart through superintelligenceco/evalkit@v0.1.0
         id: quickstart
-        uses: superintelligenceco/evalkit@281bf8f89b80edd65c6bfd64ce10e4ece737f9af # v0.1.0
+        uses: superintelligenceco/evalkit@6f5a4bae581b4693ebf086cde7cc10576da1a94f # v0.2.0
         with:
           suite: examples/quickstart/evals.yaml
           output-dir: out/quickstart
